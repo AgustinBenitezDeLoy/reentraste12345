@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estado de Verificación - Reentraste</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 30px;
+    }
+    .status-icon {
+      font-size: 80px;
+      margin: 20px 0;
+    }
+    .status-pendiente { color: #ffc107; }
+    .status-iniciado { color: #17a2b8; }
+    .status-en_proceso { color: #007bff; }
+    .status-aprobado { color: #28a745; }
+    .status-rechazado { color: #dc3545; }
+    .status-message {
+      font-size: 18px;
+      margin: 20px 0;
+      color: #666;
+    }
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    .btn-primary {
+      background-color: #007bff;
+      color: white;
+    }
+    .btn-primary:hover {
+      background-color: #0056b3;
+    }
+    .btn-secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+    .btn-secondary:hover {
+      background-color: #545b62;
+    }
+    .btn-success {
+      background-color: #28a745;
+      color: white;
+    }
+    .btn-success:hover {
+      background-color: #218838;
+    }
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #007bff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Estado de Verificación</h1>
+    <div id="statusContent">
+      <div class="spinner"></div>
+      <p>Cargando estado...</p>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token || token === 'null' || token === 'undefined') {
+      window.location.href = 'login.html';
+    }
+
+    async function cargarEstadoKYC() {
+      try {
+        const res = await fetch('/api/kyc/estado', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        const contentType = res.headers.get('content-type');
+        if (!res.ok || !contentType || !contentType.includes('application/json')) {
+          const errorText = await res.text();
+          console.error('❌ Respuesta inesperada (no JSON):', errorText);
+          mostrarError('Error inesperado al consultar estado');
+          return;
+        }
+
+        const data = await res.json();
+        if (!data.success) {
+          mostrarError(data.error || 'Error al cargar el estado');
+          return;
+        }
+
+        mostrarEstado(data.data);
+      } catch (error) {
+        console.error('❌ Error de red:', error);
+        mostrarError('Error de conexión al servidor');
+      }
+    }
+
+    function mostrarEstado(data) {
+      const container = document.getElementById('statusContent');
+      const status = data.status || 'pendiente';
+      
+      let icon, message, actions;
+      
+      switch (status) {
+        case 'pendiente':
+          icon = '⏳';
+          message = 'Tu identidad aún no ha sido verificada';
+          actions = `
+            <button class="btn-primary" onclick="iniciarVerificacion()">
+              Iniciar Verificación
+            </button>
+          `;
+          break;
+        case 'iniciado':
+        case 'en_proceso':
+          icon = '🔄';
+          message = 'Tu verificación está en proceso';
+          actions = `
+            <p style="color: #666; font-size: 14px;">
+              Esto puede tomar unos minutos. Por favor, espera.
+            </p>
+            <button class="btn-secondary" onclick="location.reload()">
+              Actualizar Estado
+            </button>
+          `;
+          break;
+        case 'aprobado':
+          icon = '✅';
+          message = '¡Tu identidad ha sido verificada exitosamente!';
+          actions = `
+            <button class="btn-success" onclick="irAlInicio()">
+              Continuar
+            </button>
+          `;
+          break;
+        case 'rechazado':
+          icon = '❌';
+          message = 'Tu verificación no pudo ser completada';
+          actions = `
+            <p style="color: #666; font-size: 14px;">
+              Por favor, intenta nuevamente con fotos más claras.
+            </p>
+            <button class="btn-primary" onclick="iniciarVerificacion()">
+              Intentar Nuevamente
+            </button>
+          `;
+          break;
+        default:
+          icon = '❓';
+          message = 'Estado desconocido';
+          actions = `
+            <button class="btn-secondary" onclick="location.reload()">
+              Reintentar
+            </button>
+          `;
+      }
+
+      container.innerHTML = `
+        <div class="status-icon status-${status}">${icon}</div>
+        <p class="status-message">${message}</p>
+        ${actions}
+      `;
+    }
+
+    function mostrarError(mensaje) {
+      document.getElementById('statusContent').innerHTML = `
+        <div class="status-icon status-rechazado">⚠️</div>
+        <p class="status-message">${mensaje}</p>
+        <button class="btn-secondary" onclick="location.reload()">
+          Reintentar
+        </button>
+      `;
+    }
+
+    async function iniciarVerificacion() {
+      const btn = event.target;
+      btn.disabled = true;
+      btn.textContent = 'Iniciando...';
+
+      try {
+        const res = await fetch('/api/kyc/iniciar', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const contentType = res.headers.get('content-type');
+        if (!res.ok || !contentType || !contentType.includes('application/json')) {
+          const errorText = await res.text();
+          console.error('❌ Respuesta inesperada al iniciar KYC:', errorText);
+          alert('Error inesperado al iniciar verificación');
+          btn.disabled = false;
+          btn.textContent = 'Iniciar Verificación';
+          return;
+        }
+
+        const data = await res.json();
+
+        if (data.success) {
+          if (data.data.alreadyVerified) {
+            alert('Tu identidad ya está verificada');
+            location.reload();
+          } else if (data.data.url) {
+            window.location.href = data.data.url;
+          }
+        } else {
+          alert(data.error || 'Error al iniciar verificación');
+          btn.disabled = false;
+          btn.textContent = 'Iniciar Verificación';
+        }
+      } catch (error) {
+        console.error('❌ Error de red al iniciar verificación:', error);
+        alert('Error de conexión');
+        btn.disabled = false;
+        btn.textContent = 'Iniciar Verificación';
+      }
+    }
+
+    function irAlInicio() {
+      window.location.href = 'index.html';
+    }
+
+    // Cargar estado al iniciar
+    cargarEstadoKYC();
+
+    // Recargar cada 5 segundos si está en proceso
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/kyc/estado', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const contentType = res.headers.get('content-type');
+        if (!res.ok || !contentType || !contentType.includes('application/json')) return;
+
+        const data = await res.json();
+        if (data.success && ['iniciado', 'en_proceso'].includes(data.data.status)) {
+          cargarEstadoKYC();
+        }
+      } catch {}
+    }, 5000);
+  </script>
+</body>
+</html>

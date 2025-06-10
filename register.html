@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Únete a Reentraste - Tu Marketplace de Entradas</title>
+  <link rel="stylesheet" href="register.css">
+</head>
+<body>
+  <div class="registration-container">
+    <div class="brand-section">
+      <div class="logo">🎫 Reentraste</div>
+      <div class="tagline">Tu marketplace de entradas de confianza</div>
+    </div>
+
+    <div class="form-header">
+      <h1 class="form-title">Crea tu cuenta</h1>
+      <p class="form-subtitle">Únete a miles de usuarios que ya confían en nosotros</p>
+    </div>
+
+    <form id="registerForm">
+      <div class="form-group">
+        <label for="nombre">Nombre Completo</label>
+        <div class="input-wrapper">
+          <span class="input-icon">👤</span>
+          <input type="text" id="nombre" name="nombre" placeholder="Ej: Juan Pérez" required>
+        </div>
+        <div class="error" id="nombreError"></div>
+      </div>
+      
+      <div class="form-group">
+        <label for="email">Correo Electrónico</label>
+        <div class="input-wrapper">
+          <span class="input-icon">📧</span>
+          <input type="email" id="email" name="email" placeholder="tu@email.com" required>
+        </div>
+        <div class="error" id="emailError"></div>
+      </div>
+      
+      <div class="form-group">
+        <label for="phone">Teléfono</label>
+        <div class="phone-input-wrapper">
+          <select id="countryCode" name="countryCode" class="country-select">
+            <option value="+598" data-country="UY">🇺🇾 Uruguay +598</option>
+            <option value="+54" data-country="AR">🇦🇷 Argentina +54</option>
+            <option value="+55" data-country="BR">🇧🇷 Brasil +55</option>
+            <option value="+56" data-country="CL">🇨🇱 Chile +56</option>
+            <option value="+57" data-country="CO">🇨🇴 Colombia +57</option>
+            <option value="+51" data-country="PE">🇵🇪 Perú +51</option>
+            <option value="+593" data-country="EC">🇪🇨 Ecuador +593</option>
+            <option value="+595" data-country="PY">🇵🇾 Paraguay +595</option>
+            <option value="+591" data-country="BO">🇧🇴 Bolivia +591</option>
+            <option value="+58" data-country="VE">🇻🇪 Venezuela +58</option>
+            <option value="+1" data-country="US">🇺🇸 Estados Unidos +1</option>
+            <option value="+34" data-country="ES">🇪🇸 España +34</option>
+          </select>
+          <input type="tel" id="phone" name="phone" placeholder="99 123 456" required>
+        </div>
+        <div class="error" id="phoneError"></div>
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <div class="input-wrapper">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="password" name="password" placeholder="Mínimo 8 caracteres" required>
+        </div>
+        <div class="error" id="passwordError"></div>
+      </div>
+      
+      <div class="form-group">
+        <label for="confirmPassword">Confirmar Contraseña</label>
+        <div class="input-wrapper">
+          <span class="input-icon">🔐</span>
+          <input type="password" id="confirmPassword" name="confirmPassword" placeholder="Repite tu contraseña" required>
+        </div>
+        <div class="error" id="confirmPasswordError"></div>
+      </div>
+      
+      <button type="submit" class="submit-btn" id="submitBtn">
+        <span id="btnText">Crear mi cuenta</span>
+      </button>
+      
+      <div class="error" id="generalError"></div>
+      <div class="success" id="successMessage"></div>
+    </form>
+    
+    <div class="login-section">
+      <div class="login-text">¿Ya tienes una cuenta?</div>
+      <a href="login.html" class="login-link">Iniciar sesión</a>
+    </div>
+
+    <div class="security-badges">
+      <div class="security-badge">
+        <span>🔐</span>
+        <span>Datos Seguros</span>
+      </div>
+      <div class="security-badge">
+        <span>🛡️</span>
+        <span>Encriptación SSL</span>
+      </div>
+      <div class="security-badge">
+        <span>✅</span>
+        <span>Protección 24/7</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="register.js"></script>
+</body>
+</html>

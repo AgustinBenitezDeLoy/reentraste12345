@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Google OAuth - Reentraste</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .test-container {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #667eea;
+    }
+    .test-btn {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 10px;
+      min-width: 200px;
+      transition: all 0.3s ease;
+    }
+    .test-btn:hover {
+      background: #3367d6;
+      transform: translateY(-2px);
+    }
+    .test-btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: left;
+    }
+    .success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+    .info {
+      background: #d1ecf1;
+      border: 1px solid #bee5eb;
+      color: #0c5460;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    pre {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <div class="logo">🎫 Reentraste - Test Google Auth</div>
+    
+    <div class="info">
+      <strong>🧪 Página de Prueba</strong><br>
+      Utiliza las credenciales de prueba para verificar que Google OAuth funciona correctamente.
+    </div>
+    
+    <button id="testRegister" class="test-btn">🔑 Test Register con Google</button>
+    <button id="testLogin" class="test-btn">🚪 Test Login con Google</button>
+    
+    <div id="result"></div>
+  </div>
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client"></script>
+  
+  <script>
+    // Configuración con credenciales de prueba
+    const GOOGLE_CLIENT_ID = '1025977436092-krrda2hrlhc7julccgrj5cc0ivp5eqag.apps.googleusercontent.com';
+    
+    let currentMode = 'test';
+    
+    // Inicializar Google Auth
+    function initGoogleAuth() {
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+    }
+    
+    // Manejar respuesta de Google
+    function handleGoogleResponse(response) {
+      try {
+        showResult('success', `
+          <strong>✅ Google Auth Exitoso!</strong><br><br>
+          <strong>Modo:</strong> ${currentMode}<br>
+          <strong>Token recibido:</strong> ${response.credential ? 'Sí' : 'No'}<br><br>
+          <strong>Siguiente paso:</strong> Enviar este token a tu backend en /api/auth/google-${currentMode}<br><br>
+          <details>
+            <summary>Ver token completo (haz clic para expandir)</summary>
+            <pre>${response.credential}</pre>
+          </details>
+        `);
+        
+        // Decodificar el payload para mostrar info del usuario
+        const payload = JSON.parse(atob(response.credential.split('.')[1]));
+        
+        setTimeout(() => {
+          showResult('info', `
+            <strong>📋 Información del Usuario:</strong><br><br>
+            <strong>Nombre:</strong> ${payload.name}<br>
+            <strong>Email:</strong> ${payload.email}<br>
+            <strong>Verificado:</strong> ${payload.email_verified ? 'Sí' : 'No'}<br>
+            <strong>Foto:</strong> <img src="${payload.picture}" width="50" style="border-radius: 50%"><br><br>
+            <details>
+              <summary>Ver payload completo</summary>
+              <pre>${JSON.stringify(payload, null, 2)}</pre>
+            </details>
+          `);
+        }, 2000);
+        
+      } catch (error) {
+        showResult('error', `❌ Error procesando respuesta: ${error.message}`);
+      }
+    }
+    
+    // Test Register
+    document.getElementById('testRegister').addEventListener('click', () => {
+      currentMode = 'register';
+      showResult('info', '🔄 Iniciando test de registro...');
+      
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          showResult('error', '❌ No se pudo mostrar el popup de Google. Verifica la configuración.');
+        }
+      });
+    });
+    
+    // Test Login
+    document.getElementById('testLogin').addEventListener('click', () => {
+      currentMode = 'login';
+      showResult('info', '🔄 Iniciando test de login...');
+      
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          showResult('error', '❌ No se pudo mostrar el popup de Google. Verifica la configuración.');
+        }
+      });
+    });
+    
+    // Mostrar resultado
+    function showResult(type, message) {
+      const resultDiv = document.getElementById('result');
+      resultDiv.className = `result ${type}`;
+      resultDiv.innerHTML = message;
+    }
+    
+    // Inicializar cuando cargue la página
+    window.addEventListener('load', () => {
+      try {
+        initGoogleAuth();
+        showResult('info', '✅ Google Auth inicializado correctamente. Haz clic en un botón para probar.');
+      } catch (error) {
+        showResult('error', `❌ Error inicializando Google Auth: ${error.message}`);
+      }
+    });
+    
+    // Verificación de configuración
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        if (!window.google) {
+          showResult('error', `
+            ❌ <strong>Error de Configuración</strong><br><br>
+            No se pudo cargar Google Identity Services. Verifica:<br>
+            • Conexión a Internet<br>
+            • Que no haya bloqueadores de anuncios<br>
+            • Que el dominio esté autorizado en Google Cloud Console
+          `);
+        }
+      }, 3000);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel de Administración - Reentraste</title>
+  <style>
+    body { display: flex; font-family: sans-serif; margin: 0; height: 100vh; }
+    .sidebar {
+      width: 220px;
+      background-color: #222;
+      color: white;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar h2 { margin-bottom: 20px; }
+    .sidebar button {
+      background: none;
+      border: none;
+      color: white;
+      padding: 10px;
+      text-align: left;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 5px;
+    }
+    .sidebar button:hover { background-color: #444; }
+    .content { flex: 1; padding: 20px; overflow-y: auto; }
+    .hidden { display: none; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; }
+    form { margin-top: 20px; }
+    form input, form select { 
+      width: 100%; 
+      padding: 8px; 
+      margin: 5px 0; 
+      box-sizing: border-box; 
+    }
+    form button { 
+      padding: 10px 20px; 
+      background-color: #007bff; 
+      color: white; 
+      border: none; 
+      cursor: pointer; 
+    }
+    form button:hover { background-color: #0056b3; }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Admin Panel</h2>
+    <button onclick="mostrar('usuarios')">Usuarios</button>
+    <button onclick="mostrar('entradas')">Entradas</button>
+    <button onclick="mostrar('eventos')">Eventos</button>
+    <button onclick="mostrar('compras')">Compras</button>
+    <button onclick="logout()">Cerrar sesión</button>
+  </div>
+
+  <div class="content">
+    <div id="usuarios" class="hidden">
+      <h1>Gestión de Usuarios</h1>
+      <div id="adminUsuarios"></div>
+    </div>
+
+    <div id="entradas" class="hidden">
+      <h1>Entradas Publicadas</h1>
+      <div id="adminEntradas"></div>
+    </div>
+
+    <div id="eventos" class="hidden">
+      <h1>Gestión de Eventos</h1>
+      <form id="formEvento">
+        <input name="name" placeholder="Nombre del evento" required>
+        <input name="date" type="datetime-local" required>
+        <input name="location" placeholder="Ubicación" required>
+        <button type="submit">Crear Evento</button>
+      </form>
+      <div id="listaEventos"></div>
+    </div>
+
+    <div id="compras" class="hidden">
+      <h1>Historial de Compras</h1>
+      <div id="adminCompras"></div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    
+    if (!token || token === 'null' || token === 'undefined') {
+      location.href = 'login.html?returnTo=admin';
+    } else {
+      verificarAccesoAdmin();
+    }
+
+    async function verificarAccesoAdmin() {
+      try {
+        const res = await fetch('/api/admin/es-admin', { 
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        
+        const data = await res.json();
+        
+        if (!data.success || !data.data?.es_admin) {
+          alert('Acceso restringido. No eres administrador.');
+          location.href = 'index.html';
+        }
+      } catch (err) {
+        alert('Error al verificar permisos');
+        location.href = 'login.html?returnTo=admin';
+      }
+    }
+
+    function mostrar(id) {
+      document.querySelectorAll('.content > div').forEach(d => d.classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+      
+      switch(id) {
+        case 'usuarios': cargarUsuarios(); break;
+        case 'entradas': cargarEntradas(); break;
+        case 'eventos': cargarEventos(); break;
+        case 'compras': cargarCompras(); break;
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      location.href = 'login.html';
+    }
+
+    // USUARIOS
+    async function cargarUsuarios() {
+      try {
+        const res = await fetch('/api/admin/usuarios', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const contenedor = document.getElementById('adminUsuarios');
+        
+        if (!data.success || !data.data.usuarios.length) {
+          contenedor.innerHTML = '<p>No hay usuarios registrados.</p>';
+          return;
+        }
+
+        let html = '<table><tr><th>Nombre</th><th>Email</th><th>Cédula</th><th>Estado</th><th>Acciones</th></tr>';
+        data.data.usuarios.forEach(user => {
+          html += `<tr>
+            <td>${user.full_name}</td>
+            <td>${user.email}</td>
+            <td>${user.cedula_number}</td>
+            <td>${user.bloqueado ? 'Bloqueado' : 'Activo'}</td>
+            <td>
+              <button onclick="${user.bloqueado ? 'desbloquear' : 'bloquear'}Usuario(${user.id})">
+                ${user.bloqueado ? 'Desbloquear' : 'Bloquear'}
+              </button>
+            </td>
+          </tr>`;
+        });
+        html += '</table>';
+        contenedor.innerHTML = html;
+      } catch (err) {
+        document.getElementById('adminUsuarios').innerHTML = '<p>Error al cargar usuarios.</p>';
+      }
+    }
+
+    async function bloquearUsuario(id) {
+      try {
+        const res = await fetch(`/api/admin/usuarios/${id}/bloquear`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if ((await res.json()).success) {
+          cargarUsuarios();
+        }
+      } catch (err) {
+        alert('Error al bloquear usuario');
+      }
+    }
+
+    async function desbloquearUsuario(id) {
+      try {
+        const res = await fetch(`/api/admin/usuarios/${id}/desbloquear`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if ((await res.json()).success) {
+          cargarUsuarios();
+        }
+      } catch (err) {
+        alert('Error al desbloquear usuario');
+      }
+    }
+
+    // ENTRADAS
+    async function cargarEntradas() {
+      try {
+        const res = await fetch('/api/admin/entradas', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const contenedor = document.getElementById('adminEntradas');
+        
+        if (!data.success || !data.data.entradas.length) {
+          contenedor.innerHTML = '<p>No hay entradas publicadas.</p>';
+          return;
+        }
+
+        let html = '<table><tr><th>Evento</th><th>Precio</th><th>Vendedor</th><th>Acciones</th></tr>';
+        data.data.entradas.forEach(e => {
+          html += `<tr>
+            <td>${e.evento}</td>
+            <td>$${e.precio}</td>
+            <td>${e.vendedor}</td>
+            <td><button onclick="eliminarEntrada(${e.id})">Eliminar</button></td>
+          </tr>`;
+        });
+        html += '</table>';
+        contenedor.innerHTML = html;
+      } catch (err) {
+        document.getElementById('adminEntradas').innerHTML = '<p>Error al cargar entradas.</p>';
+      }
+    }
+
+    async function eliminarEntrada(id) {
+      if (!confirm('¿Eliminar esta entrada?')) return;
+      try {
+        const res = await fetch(`/api/admin/entradas/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if ((await res.json()).success) {
+          cargarEntradas();
+        }
+      } catch (err) {
+        alert('Error al eliminar entrada');
+      }
+    }
+
+    // EVENTOS
+    async function cargarEventos() {
+      document.getElementById('formEvento').onsubmit = async e => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const evento = {
+          name: formData.get('name'),
+          date: formData.get('date'),
+          location: formData.get('location')
+        };
+
+        try {
+          const res = await fetch('/api/admin/eventos', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify(evento)
+          });
+          
+          if ((await res.json()).success) {
+            alert('Evento creado');
+            e.target.reset();
+          }
+        } catch (err) {
+          alert('Error al crear evento');
+        }
+      };
+    }
+
+    // COMPRAS
+    async function cargarCompras() {
+      const contenedor = document.getElementById('adminCompras');
+      contenedor.innerHTML = '<p>Función en desarrollo...</p>';
+    }
+
+    // Iniciar con usuarios
+    mostrar('usuarios');
+  </script>
+</body>
+</html>

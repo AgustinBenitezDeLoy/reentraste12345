@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel del Vendedor - Reentraste</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+    .sidebar {
+      width: 240px;
+      background: #2c3e50;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+    }
+    .sidebar h2 {
+      font-size: 24px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .sidebar button {
+      background: none;
+      border: none;
+      color: white;
+      text-align: left;
+      padding: 15px;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 5px;
+      font-size: 16px;
+      transition: background 0.3s;
+    }
+    .sidebar button:hover {
+      background: #34495e;
+      border-radius: 4px;
+    }
+    .content {
+      flex-grow: 1;
+      padding: 30px;
+      overflow-y: auto;
+      background-color: #f8f9fa;
+    }
+    .hidden {
+      display: none;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    canvas {
+      max-width: 100%;
+      height: 300px !important;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    form label {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-weight: bold;
+    }
+    form input, form select {
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    form button {
+      padding: 12px;
+      background-color: #27ae60;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    form button:hover {
+      background-color: #219a52;
+    }
+    .ticket-item {
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ticket-item button {
+      background-color: #e74c3c;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .ticket-item button:hover {
+      background-color: #c0392b;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Reentraste</h2>
+    <button onclick="mostrarSeccion('dashboard')">Dashboard</button>
+    <button onclick="mostrarSeccion('publicar')">Publicar Entrada</button>
+    <button onclick="mostrarSeccion('mias')">Mis Entradas</button>
+    <button onclick="logout()">Cerrar sesión</button>
+  </div>
+
+  <div class="content">
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="card">
+      <h1>Dashboard de Ventas</h1>
+      <label for="rango">Período:</label>
+      <select id="rango" onchange="cargarGraficoIngresos(this.value)">
+        <option value="7">Últimos 7 días</option>
+        <option value="30">Últimos 30 días</option>
+        <option value="90">Últimos 3 meses</option>
+      </select>
+      <canvas id="graficoIngresos"></canvas>
+    </div>
+
+    <!-- PUBLICAR -->
+    <div id="publicar" class="hidden card">
+      <h1>Publicar nueva entrada</h1>
+      <form id="formPublicar" enctype="multipart/form-data">
+        <label>
+          Evento:
+          <select name="event_id" id="eventSelect" required>
+            <option value="">Selecciona un evento</option>
+          </select>
+        </label>
+        <label>
+          Precio:
+          <input type="number" name="precio" step="0.01" min="0" required>
+        </label>
+        <label>
+          Archivo QR:
+          <input type="file" name="archivo" accept="image/*" required>
+        </label>
+        <button type="submit">Publicar Entrada</button>
+      </form>
+    </div>
+
+    <!-- MIS ENTRADAS -->
+    <div id="mias" class="hidden card">
+      <h1>Mis entradas publicadas</h1>
+      <div id="listaMias"></div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token || token === 'null' || token === 'undefined') {
+      window.location.href = 'login.html';
+    }
+
+    let miGrafico = null;
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    }
+
+    function mostrarSeccion(id) {
+      ['dashboard', 'publicar', 'mias'].forEach(s => {
+        document.getElementById(s).classList.add('hidden');
+      });
+      document.getElementById(id).classList.remove('hidden');
+      
+      if (id === 'dashboard') cargarGraficoIngresos(7);
+      if (id === 'publicar') cargarEventos();
+      if (id === 'mias') cargarEntradasMias();
+    }
+
+    async function cargarGraficoIngresos(dias = 7) {
+      try {
+        const res = await fetch(`/api/ingresos?dias=${dias}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (!data.success) return;
+
+        const ctx = document.getElementById('graficoIngresos').getContext('2d');
+        
+        if (miGrafico) {
+          miGrafico.destroy();
+        }
+
+        miGrafico = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: data.data.labels,
+            datasets: [{
+              label: 'Ingresos ($)',
+              data: data.data.valores,
+              backgroundColor: 'rgba(52, 152, 219, 0.6)',
+              borderColor: 'rgba(52, 152, 219, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: function(value) {
+                    return '$' + value;
+                  }
+                }
+              }
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error al cargar gráfico:', error);
+      }
+    }
+
+    async function cargarEventos() {
+      try {
+        const res = await fetch('/api/events/todos');
+        const data = await res.json();
+        const select = document.getElementById('eventSelect');
+        select.innerHTML = '<option value="">Selecciona un evento</option>';
+        
+        if (data.success && data.data.events) {
+          data.data.events.forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e.id;
+            opt.textContent = `${e.name} - ${new Date(e.date).toLocaleDateString()}`;
+            select.appendChild(opt);
+          });
+        }
+      } catch (error) {
+        console.error('Error al cargar eventos:', error);
+      }
+    }
+
+    document.getElementById('formPublicar').onsubmit = async e => {
+      e.preventDefault();
+      
+      try {
+        const formData = new FormData(e.target);
+        const res = await fetch('/api/tickets/nuevo', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          alert('Entrada publicada exitosamente');
+          e.target.reset();
+        } else {
+          alert(data.error || 'Error al publicar');
+        }
+      } catch (error) {
+        alert('Error al publicar entrada');
+      }
+    };
+
+    async function cargarEntradasMias() {
+      try {
+        const res = await fetch('/api/tickets/mias', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const contenedor = document.getElementById('listaMias');
+        contenedor.innerHTML = '';
+        
+        if (!data.success || !data.data.tickets.length) {
+          contenedor.innerHTML = '<p>No tienes entradas publicadas.</p>';
+          return;
+        }
+        
+        data.data.tickets.forEach(t => {
+          const div = document.createElement('div');
+          div.className = 'ticket-item';
+          div.innerHTML = `
+            <div>
+              <strong>${t.evento}</strong><br>
+              Fecha: ${new Date(t.date).toLocaleDateString()}<br>
+              Precio: $${t.precio}
+            </div>
+            <button onclick="eliminarEntrada(${t.id})">Eliminar</button>
+          `;
+          contenedor.appendChild(div);
+        });
+      } catch (error) {
+        document.getElementById('listaMias').innerHTML = '<p>Error al cargar entradas.</p>';
+      }
+    }
+
+    async function eliminarEntrada(id) {
+      if (!confirm('¿Eliminar esta entrada?')) return;
+      
+      try {
+        const res = await fetch(`/api/tickets/eliminar/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        const data = await res.json();
+        if (data.success) {
+          cargarEntradasMias();
+        } else {
+          alert(data.error || 'Error al eliminar');
+        }
+      } catch (error) {
+        alert('Error al eliminar entrada');
+      }
+    }
+
+    // Iniciar con dashboard
+    mostrarSeccion('dashboard');
+  </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Publicar Entrada - Reentraste</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+    .navbar {
+      background-color: #333;
+      color: white;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .navbar h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      padding: 8px 16px;
+      background-color: #555;
+      border-radius: 4px;
+    }
+    .navbar a:hover {
+      background-color: #666;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    .form-card {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h2 {
+      margin-bottom: 30px;
+      color: #333;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-weight: bold;
+      color: #555;
+    }
+    select, input {
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    button {
+      padding: 14px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #218838;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .file-info {
+      font-size: 14px;
+      color: #666;
+      margin-top: 5px;
+    }
+    .preview {
+      margin-top: 10px;
+      max-width: 200px;
+    }
+    .preview img {
+      width: 100%;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <h1>Reentraste</h1>
+    <a href="index.html">Volver al inicio</a>
+  </div>
+
+  <div class="container">
+    <div class="form-card">
+      <h2>Publicar una entrada</h2>
+      <form id="ticketForm" enctype="multipart/form-data">
+        <label>
+          Seleccionar evento:
+          <select name="event_id" id="eventSelect" required>
+            <option value="">Cargando eventos...</option>
+          </select>
+        </label>
+
+        <label>
+          Precio de venta:
+          <input type="number" name="precio" step="0.01" min="1" placeholder="0.00" required>
+        </label>
+
+        <label>
+          Imagen del código QR:
+          <input type="file" name="archivo" id="archivoInput" accept="image/*" required>
+          <div class="file-info">Sube una foto clara del código QR de tu entrada</div>
+          <div id="preview" class="preview"></div>
+        </label>
+
+        <button type="submit" id="submitBtn">Publicar Entrada</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token || token === 'null' || token === 'undefined') {
+      window.location.href = 'login.html';
+    }
+
+    // Cargar eventos
+    async function cargarEventos() {
+      try {
+        const res = await fetch('/api/events/todos');
+        const data = await res.json();
+        const select = document.getElementById('eventSelect');
+        select.innerHTML = '<option value="">Selecciona un evento</option>';
+
+        if (data.success && data.data.events) {
+          data.data.events.forEach(evento => {
+            const option = document.createElement('option');
+            option.value = evento.id;
+            option.textContent = `${evento.name} - ${new Date(evento.date).toLocaleDateString()} (${evento.location})`;
+            select.appendChild(option);
+          });
+        } else {
+          select.innerHTML = '<option value="">No hay eventos disponibles</option>';
+        }
+      } catch (error) {
+        document.getElementById('eventSelect').innerHTML = '<option value="">Error al cargar eventos</option>';
+      }
+    }
+
+    // Preview de imagen
+    document.getElementById('archivoInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      const preview = document.getElementById('preview');
+      
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          alert('El archivo es muy grande. Máximo 5MB.');
+          e.target.value = '';
+          preview.innerHTML = '';
+          return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          preview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
+        };
+        reader.readAsDataURL(file);
+      } else {
+        preview.innerHTML = '';
+      }
+    });
+
+    // Enviar formulario
+    document.getElementById('ticketForm').onsubmit = async e => {
+      e.preventDefault();
+      
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Publicando...';
+
+      const formData = new FormData(e.target);
+
+      try {
+        const res = await fetch('/api/tickets/nuevo', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData
+        });
+
+        const data = await res.json();
+        
+        if (data.success) {
+          alert('¡Entrada publicada con éxito!');
+          window.location.href = 'mis-reventas.html';
+        } else {
+          alert(data.error || 'Error al publicar la entrada');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Publicar Entrada';
+        }
+      } catch (error) {
+        alert('Error de conexión');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Publicar Entrada';
+      }
+    };
+
+    // Cargar eventos al iniciar
+    cargarEventos();
+  </script>
+</body>
+</html>

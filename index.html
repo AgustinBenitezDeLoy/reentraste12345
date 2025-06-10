@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inicio - Reentraste</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+    .navbar {
+      background-color: #333;
+      color: white;
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .navbar h1 {
+      margin: 0;
+    }
+    .navbar button {
+      background-color: #f44336;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .navbar button:hover {
+      background-color: #d32f2f;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .section {
+      background: white;
+      margin-bottom: 20px;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .event-card {
+      padding: 15px;
+      margin-bottom: 10px;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .event-info {
+      flex: 1;
+    }
+    .event-card button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .event-card button:hover {
+      background-color: #0056b3;
+    }
+    .ticket-card {
+      padding: 10px;
+      margin-bottom: 8px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .quick-links {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .quick-links a {
+      background-color: #28a745;
+      color: white;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 4px;
+    }
+    .quick-links a:hover {
+      background-color: #218838;
+    }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <h1>Reentraste</h1>
+    <button onclick="logout()">Cerrar sesión</button>
+  </div>
+
+  <div class="container">
+    <div class="quick-links">
+      <a href="cargar-ticket.html">Publicar Entrada</a>
+      <a href="mis-reventas.html">Mis Reventas</a>
+      <a href="mis-compras.html">Mis Compras</a>
+      <a href="vendedor.html">Panel Vendedor</a>
+    </div>
+
+    <div class="section">
+      <h2>Eventos disponibles</h2>
+      <div id="listaEventos">Cargando eventos...</div>
+    </div>
+
+    <div class="section">
+      <h2>Entradas disponibles</h2>
+      <div id="listaEntradas">Selecciona un evento para ver las entradas disponibles</div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token || token === 'null' || token === 'undefined') {
+      window.location.href = 'login.html';
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = 'login.html';
+    }
+
+    async function cargarEventos() {
+      try {
+        const res = await fetch('/api/events/todos');
+        const data = await res.json();
+        const contenedor = document.getElementById('listaEventos');
+
+        if (!data.success || !data.data.events.length) {
+          contenedor.innerHTML = '<p>No hay eventos disponibles.</p>';
+          return;
+        }
+
+        contenedor.innerHTML = '';
+        data.data.events.forEach(evento => {
+          const div = document.createElement('div');
+          div.className = 'event-card';
+          div.innerHTML = `
+            <div class="event-info">
+              <strong>${evento.name}</strong><br>
+              ${new Date(evento.date).toLocaleDateString()} - ${evento.location}
+            </div>
+            <button onclick="verReventas(${evento.id}, '${evento.name}')">Ver entradas</button>
+          `;
+          contenedor.appendChild(div);
+        });
+      } catch (error) {
+        document.getElementById('listaEventos').innerHTML = '<p>Error al cargar eventos.</p>';
+      }
+    }
+
+    async function verReventas(eventId, eventName) {
+      try {
+        const res = await fetch(`/api/tickets/por-evento/${eventId}`);
+        const data = await res.json();
+        const contenedor = document.getElementById('listaEntradas');
+
+        if (!data.success || !data.data.tickets.length) {
+          contenedor.innerHTML = `<p>No hay entradas disponibles para ${eventName}.</p>`;
+          return;
+        }
+
+        contenedor.innerHTML = `<h3>Entradas para ${eventName}</h3>`;
+        data.data.tickets.forEach(ticket => {
+          const div = document.createElement('div');
+          div.className = 'ticket-card';
+          div.innerHTML = `
+            <div>
+              <strong>Vendedor:</strong> ${ticket.vendedor} | 
+              <strong>Precio:</strong> $${ticket.precio}
+            </div>
+            <button onclick="comprarEntrada(${ticket.id})">Comprar</button>
+          `;
+          contenedor.appendChild(div);
+        });
+      } catch (error) {
+        document.getElementById('listaEntradas').innerHTML = '<p>Error al cargar entradas.</p>';
+      }
+    }
+
+    async function comprarEntrada(ticketId) {
+      if (!confirm('¿Confirmas la compra de esta entrada?')) return;
+
+      try {
+        const res = await fetch(`/api/compras/comprar/${ticketId}`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          alert('¡Compra realizada con éxito!');
+          location.reload();
+        } else {
+          alert(data.error || 'Error al procesar la compra');
+        }
+      } catch (error) {
+        alert('Error al procesar la compra');
+      }
+    }
+
+    cargarEventos();
+  </script>
+</body>
+</html>
